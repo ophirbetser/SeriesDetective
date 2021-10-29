@@ -1,0 +1,13 @@
+name: SeriesDetective
+title: SeriesDetective
+username:
+account: ophir-betser
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5003185
+bundleId: 5191369
+url: https://ophir-betser.shinyapps.io/SeriesDetective/
+when: 1635530515.78657
+lastSyncTime: 1635530515.78659
+asMultiple: FALSE
+asStatic: FALSE
