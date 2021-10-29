@@ -1,0 +1,440 @@
+---
+title: "MOFdata"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  lubridate,
+  shiny,
+  flexdashboard,
+  stringi,
+  plotly,
+  ggthemes,
+  colourpicker
+  )
+
+f <- function(f_name, vector){
+      if(f_name == "mean"){
+        return(mean(vector))
+      } else if(f_name == "sum"){
+        return(sum(vector))
+      } else if(f_name == "min"){
+        return(min(vector))
+      } else if(f_name == "max"){
+        return(max(vector))
+      } else if(f_name == "sd"){
+        return(sd(vector))
+      } else if(f_name == "uniqueN"){
+        return(uniqueN(vector))
+      } else if(f_name == "median"){
+        return(median(vector))
+      }else if(f_name == "sum_NA"){
+        return(sum(is.na(vector)))
+      }
+}
+
+# for facet grid formola to eork eith shiny
+glue_formula <- function(.formula, .envir = parent.frame(), ...){
+  formula_chr <- gsub("\\n\\s*","",as.character(.formula)[c(2,1,3)])
+  args <- c(as.list(formula_chr), .sep=" ", .envir = .envir)
+  as.formula(do.call(glue::glue, args),env = .envir)
+}
+```
+
+```{r}
+n <- 24000
+dates <- seq(as.Date("2010-01-01"), as.Date("2011-01-01"), "days")
+
+# gen the random data
+data <- 
+    data.table(
+      date1 = sort(sample(dates, n, replace = T)),
+      y1 = rnorm(n) + seq(0, 0.5, length.out = n),
+      y2 = rnorm(n, mean = -0.25, sd = 2),
+      y3 = rnorm(n, mean = 0.25, sd = 1.5),
+      y4 = rnorm(n, mean = 0.5, sd = 1.5),
+      group1 = sample(c("yin", "yang"), n, replace = T),
+      group2 = sample(c("tora", "avoda", "gmilot_hasadim"), n, replace = T),
+      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
+      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
+    )
+
+
+data$month_date1 <- lubridate::floor_date(data$date1, "months")
+data$mday_date1 <- lubridate::day(data$date1)
+data$wday_date1 <- lubridate::wday(data$date1)
+data$isoweek_date1 <- lubridate::isoweek(data$date1)
+
+```
+
+
+```{r}
+# keep those names
+
+## date cols:
+date_col_names <- 
+  names(data)[
+    str_detect(names(data), "date")
+    ]
+
+# num cols:
+num_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.numeric)) &
+    !names(data) %in% date_col_names
+    ]
+
+# char cols:
+chr_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.character)) |
+    unlist(lapply(data, is.factor))
+    ]
+```
+
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+selectInput(
+  'f',
+  label = 'f',
+  c("mean", "sum", "min", "max", "sd", "uniqueN", "median", "sum_NA"),
+  selected= 'mean'
+  )
+
+
+selectInput(
+  'x',
+  label = 'x',
+  date_col_names,
+  selected = date_col_names[1]
+  )
+
+
+selectInput(
+  'y_a',
+  label = 'y_a',
+  num_col_names,
+  selected= num_col_names[1]
+  )
+
+selectInput(
+  'y_b',
+  label = 'y_b',
+  c("none", num_col_names),
+  selected= 'none'
+  )
+
+selectInput(
+  'facet_1',
+  label = 'facet_1',
+  c(".", chr_col_names),
+  selected= '.'
+  )
+
+selectInput(
+  'facet_2',
+  label = 'facet_2',
+  c(".", chr_col_names),
+  selected= "."
+  )
+
+radioButtons(
+  "smooth",
+  "smooth",
+  choices = c("none", "lm", "smooth"),
+  selected = "none"
+)
+
+checkboxInput("se", "se", value = FALSE)
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+
+# create data pivot ----
+data_for_plot <- 
+  reactive({
+    if(input$facet_1 == "." & input$facet_2 == "."){
+      ColSelect <- input$x
+    } else if(input$facet_1 != "." & input$facet_2 == "."){
+      ColSelect <- c(input$x, input$facet_1)
+    } else if(input$facet_1 == "." & input$facet_2 != "."){
+      ColSelect <- c(input$x, input$facet_2)
+    } else{
+      ColSelect <- c(input$x, input$facet_1, input$facet_2)
+    }
+    
+    if(input$y_b == "none"){
+    data[,
+       .(
+         V1 = f(input$f, get(input$y_a))
+         ),
+       by = ColSelect]
+    } else{
+    data[,
+       .(
+         V1 = f(input$f, get(input$y_a)),
+         V2 = f(input$f, get(input$y_b))
+         ),
+       by = ColSelect]
+    }
+  })
+```
+
+```{r}
+# create plot ----
+renderPlot({
+    g <- 
+    data_for_plot() %>% 
+      ggplot() +
+        aes_string(x = input$x, y = "V1") +
+        geom_line(
+          color = input$line_color,
+          size = input$line_size,
+          linetype = input$line_type
+          ) +
+        geom_point(
+          color = input$point_color, 
+          size = input$point_size,
+          shape = input$point_shape
+          )
+    
+  ## add facets ----
+  if(input$facet_1 != "." || input$facet_2 != "."){
+    if(input$facet_1 == input$facet_2){
+      g <-
+        g +
+        facet_grid(glue_formula({input$facet_1} ~ .))
+    } else{
+      g <- 
+        g +
+        facet_grid(glue_formula({input$facet_1} ~ {input$facet_2}))
+    }
+  }
+
+  ## add smooth line ----
+  if(input$smooth == "lm"){
+       g <- 
+         g +
+         geom_smooth(method = "lm", se = input$se)
+  } else if(input$smooth == "smooth"){
+       g <- 
+         g +
+         geom_smooth(se = input$se)
+  }
+  
+  ## add y_b ----
+  if(input$y_b != "none"){
+    g <- 
+      g +
+      geom_line(aes_string(x = input$x, y = "V2"), color = "red")
+  }
+  
+  ## serve plot ----
+  g <- 
+  g + 
+    #scale_y_continuous(
+    #  expand = c(0.025,0.025)
+    #) +
+    #scale_x_continuous(
+    #  expand = c(0.025,0.025)
+    #) +
+    theme_bw() +
+     labs(
+       title = glue("{input$f} of {input$y_a} by time"),
+       subtitle = glue("{input$facet_1} vs {input$facet_2}"),
+       x = "",
+       y = ""
+     ) +
+    guides(x.sec = guide_axis(), y.sec = guide_axis()) +
+    ### theming ----
+    theme(
+      # panel and grid
+      plot.background = 
+        element_rect(
+          fill = input$plot_background_color
+          ),
+      panel.background = 
+        element_rect(
+          fill = input$panel_background_color,
+          size = 0.5, 
+          linetype = "solid"
+          ),
+      panel.grid = 
+        element_line(
+          color = input$grid_color,
+          size = input$grid_size
+          ),
+      
+      # strip
+      strip.background = 
+        element_rect(
+          colour="black", fill=input$strip.background_color, 
+          size=1, linetype="solid"),
+      strip.text = 
+        element_text(
+          size=12, color="black",
+          face="bold"),
+      
+      # labs
+      plot.title = 
+        element_text(
+          color="black", size=input$title_size, face="bold"
+          ),
+      plot.subtitle = 
+        element_text(
+          size = input$subtitle_size ,color="black", face="bold", hjust = 0.05
+          ),
+     axis.text = 
+       element_text( 
+         color="black", 
+         face = "bold",
+         size = input$axis_size
+         ),
+     axis.ticks = element_blank() 
+     
+    )
+  
+  g
+})
+```
+
+
+
+
+# Design
+
+## panel and data
+
+### **point**
+
+
+```{r}
+
+# set the user selecton sidebar
+sliderInput("point_size", label = "point_size:",
+            min = 0.2, max = 5, value = 2, step = 0.1)
+
+colourInput(
+  "point_color", "point color", "#0088FFF8",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+
+
+sliderInput("point_shape", label = "point_shape:",
+            min = 1, max = 25, value = 19, step = 1)
+
+
+```
+
+
+### **line**
+
+```{r}
+
+sliderInput("line_size", label = "line_size:",
+            min = 0.2, max = 5, value = 1.2, step = 0.1)
+
+colourInput(
+  "line_color", "line color", "#000000",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+
+selectInput(
+  'line_type',
+  label = 'line_type',
+  c("solid", "dashed", "datdash", "dotted", "twodash", "longdash"),
+  selected= "solid"
+  )
+
+
+```
+
+## grid and panel
+
+### **plot.background**
+
+```{r}
+colourInput(
+  "plot_background_color", NULL, "#BFBFBF",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+```
+
+### **panel.background**
+
+```{r}
+colourInput(
+  "panel_background_color", NULL, "#E3E3E3",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+```
+
+### **panel.grid**
+
+```{r}
+sliderInput("grid_size", label = "grid_size:",
+            min = 0.1, max = 5, value = 0.5, step = 0.1)
+
+colourInput(
+  "grid_color", NULL, "#6E6E6EF8",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+```
+
+### **strip.background**
+
+```{r}
+colourInput(
+  "strip.background_color", NULL, "#A8D6FFF8",
+  allowTransparent = TRUE, closeOnClick = TRUE)
+```
+
+## labels
+
+### **axis**
+
+```{r}
+sliderInput("axis_size", label = "axis_size:",
+            min = 4, max = 20, value = 10, step = 0.25)
+```
+
+### **title**
+
+```{r}
+sliderInput("title_size", label = "title_size:",
+            min = 4, max = 40, value = 24, step = 0.25)
+```
+
+### **subtitle**
+
+```{r}
+sliderInput("subtitle_size", label = "subtitle_size:",
+            min = 4, max = 40, value = 16, step = 0.25)
+```
