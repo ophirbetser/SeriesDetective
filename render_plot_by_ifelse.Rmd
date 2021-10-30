@@ -77,7 +77,11 @@ renderPlot({
   if(input$col == "off"){
       plot1  
   } else{
-      plot2
+      source(
+        here::here("try_to_source_me.R"),
+        encoding = "UTF-8"
+        )
+    plot3
   }
 })
 ```
