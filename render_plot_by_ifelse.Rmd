@@ -1,0 +1,86 @@
+---
+title: "MOFdata"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  lubridate,
+  shiny,
+  flexdashboard,
+  stringi,
+  plotly,
+  ggthemes,
+  colourpicker
+  )
+
+```
+
+
+```{r}
+plot1 <- 
+  iris %>% ggplot() +
+    aes(Sepal.Length,Sepal.Width) +
+    geom_point()
+
+plot2 <- 
+  iris %>% ggplot() +
+    aes(Sepal.Length,Sepal.Width, color = Species) +
+    geom_point()
+
+
+```
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+
+radioButtons(
+  "col",
+  "col",
+  choices = c("off", "on"),
+  selected = "off"
+)
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+# create plot ----
+renderPlot({
+  if(input$col == "off"){
+      plot1  
+  } else{
+      plot2
+  }
+})
+```
+
+
+
