@@ -1,0 +1,247 @@
+---
+title: "MOFdata"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  lubridate,
+  shiny,
+  flexdashboard,
+  stringi,
+  plotly,
+  ggthemes,
+  ggeasy,
+  colourpicker
+  )
+
+library(pacman)
+library(data.table)
+library(tidyverse)
+library(ggeasy)
+library(Rcpp)
+library(glue)
+library(lubridate)
+library(shiny)
+library(flexdashboard)
+library(stringi)
+library(plotly)
+library(ggthemes)
+library(colourpicker)
+
+f <- function(f_name, vector){
+      if(f_name == "mean"){
+        return(mean(vector))
+      } else if(f_name == "sum"){
+        return(sum(vector))
+      } else if(f_name == "min"){
+        return(min(vector))
+      } else if(f_name == "max"){
+        return(max(vector))
+      } else if(f_name == "sd"){
+        return(sd(vector))
+      } else if(f_name == "uniqueN"){
+        return(uniqueN(vector))
+      } else if(f_name == "median"){
+        return(median(vector))
+      }else if(f_name == "sum_NA"){
+        return(sum(is.na(vector)))
+      }
+}
+
+# for facet grid formola to eork eith shiny
+glue_formula <- function(.formula, .envir = parent.frame(), ...){
+  formula_chr <- gsub("\\n\\s*","",as.character(.formula)[c(2,1,3)])
+  args <- c(as.list(formula_chr), .sep=" ", .envir = .envir)
+  as.formula(do.call(glue::glue, args),env = .envir)
+}
+```
+
+```{r}
+#n <- 24000
+#
+## gen the random data
+#data <- 
+#    data.table(
+#      y1 = rnorm(n) + seq(0, 0.5, length.out = n),
+#      y2 = rnorm(n, mean = -0.25, sd = 2),
+#      y3 = rnorm(n, mean = 0.25, sd = 1.5),
+#      y4 = rnorm(n, mean = 0.5, sd = 1.5),
+#      group1 = sample(c("yin", "yang"), n, replace = T),
+#      group2 = sample(c("tora", "avoda", "gmilot_hasadim"), n, replace = T),
+#      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
+#      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
+#    )
+#
+data <-
+  as.data.table(
+  ggplot2::diamonds
+  )
+```
+
+
+```{r}
+
+# num cols:
+num_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.numeric))
+    ]
+
+# char cols:
+chr_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.character)) |
+    unlist(lapply(data, is.factor))
+    ]
+```
+
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+selectInput(
+  'f',
+  label = 'f',
+  c("mean", "sum", "min", "max", "sd", "uniqueN", "median", "sum_NA"),
+  selected= 'mean'
+  )
+
+
+selectInput(
+  'x',
+  label = 'x',
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+
+selectInput(
+  'y',
+  label = 'y',
+  num_col_names,
+  selected= num_col_names[1]
+  )
+
+
+selectInput(
+  'fill_by',
+  label = 'fill_by',
+  c(".", chr_col_names),
+  selected= '.'
+  )
+
+selectInput(
+  'position',
+  label = 'position',
+  c(".", "dodge", "fill", "stack"),
+  selected= '.'
+  )
+
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+
+# create data pivot ----
+data_for_plot <- 
+  reactive({
+    if(input$fill_by == "."){
+    ColSelect <- input$x
+    data[,
+        .(
+         V1 = f(input$f, get(input$y))
+         ),
+        by = ColSelect]
+    } else {
+          ColSelect <- c(input$x, input$fill_by)
+          data[,
+              .(
+               V1 = f(input$f, get(input$y))
+               ),
+              by = ColSelect]
+    }
+    
+  })
+```
+
+```{r}
+# create plot ----
+renderPlot({
+  if(input$fill_by == "."){
+  g <- 
+    data_for_plot() %>% 
+    ggplot() +
+      aes_string(x = input$x, y = "V1", fill = input$x) + 
+      geom_bar(stat = "identity")
+  } else {
+      if(input$position %in% c(".", "dodge")){
+            g <- 
+            data_for_plot() %>% 
+            ggplot() +
+              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
+              geom_bar(stat = "identity",
+                       position = position_dodge2(preserve = "single"))
+      } else if(input$position == "fill"){
+            g <- 
+            data_for_plot() %>% 
+            ggplot() +
+              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
+              geom_bar(stat = "identity",
+                       position = "fill")
+      } else{
+            g <- 
+            data_for_plot() %>% 
+            ggplot() +
+              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
+              geom_bar(stat = "identity")
+
+      }
+  }
+  
+  g +
+    theme_classic() +
+    scale_y_continuous(
+      expand = c(0, NA)
+    ) +
+    easy_remove_y_axis(what = c("line", "ticks")) +
+    labs(
+      title = "OPHIR",
+      subtitle = "betser",
+      x = "",
+      y = "",
+      fill = ""
+    )
+})
+```
+
+
+
