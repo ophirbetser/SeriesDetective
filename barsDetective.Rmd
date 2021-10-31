@@ -7,8 +7,6 @@ output:
 runtime: shiny
 ---
 
-
-
 # Plot
 
 ```{r global}
@@ -33,20 +31,8 @@ pacman::p_load(
   colourpicker
   )
 
-library(pacman)
-library(data.table)
-library(tidyverse)
-library(ggeasy)
-library(Rcpp)
-library(glue)
-library(lubridate)
-library(shiny)
-library(flexdashboard)
-library(stringi)
-library(plotly)
-library(ggthemes)
-library(colourpicker)
-
+# f for R^2 -> R function on vector, 
+# by the name of the function
 f <- function(f_name, vector){
       if(f_name == "mean"){
         return(mean(vector))
@@ -68,13 +54,6 @@ f <- function(f_name, vector){
         return(sum(is.na(vector)))
       }
 }
-
-# for facet grid formola to eork eith shiny
-glue_formula <- function(.formula, .envir = parent.frame(), ...){
-  formula_chr <- gsub("\\n\\s*","",as.character(.formula)[c(2,1,3)])
-  args <- c(as.list(formula_chr), .sep=" ", .envir = .envir)
-  as.formula(do.call(glue::glue, args),env = .envir)
-}
 ```
 
 
@@ -93,26 +72,26 @@ glue_formula <- function(.formula, .envir = parent.frame(), ...){
 #      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
 #      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
 #    )
-#
+
 
 #data <-
 #  as.data.table(
 #  ggplot2::diamonds
 #  )
 
-#data <-
-#  as.data.table(
-#  mtcars
-#  )
-#data$cyl <- as.factor(data$cyl)
-#data$vs <- as.factor(data$vs)
-#data$am <- as.factor(data$am)
-
-
 data <-
   as.data.table(
-  iris
+  mtcars
   )
+data$cyl <- as.factor(data$cyl)
+data$vs <- as.factor(data$vs)
+data$am <- as.factor(data$am)
+
+
+#data <-
+#  as.data.table(
+#  iris
+#  )
 ```
 
 
@@ -133,20 +112,19 @@ chr_col_names <-
 ```
 
 
-
 Column {.sidebar data-width=150}
 -----------------------------------------------------------------------
 
 <br>
 ```{r}
-# set the user selection sidebar
+# set the user selection sidebar ----
+
 selectInput(
   'f',
   label = 'f',
   c("mean", "sum", "min", "max", "sd", "count", "uniqueN", "median", "sum_NA"),
   selected= 'mean'
   )
-
 
 selectInput(
   'x',
@@ -155,14 +133,12 @@ selectInput(
   selected = chr_col_names[1]
   )
 
-
 selectInput(
   'y',
   label = 'y',
   num_col_names,
   selected= num_col_names[1]
   )
-
 
 selectInput(
   'fill_by',
@@ -191,8 +167,6 @@ selectInput(
   c("Set1", "Set2", "Set3", "Accent", "Dark2", "Paired", "Pastel1", "Pastel2"),
   selected = "Set1"
   )
-
-
 ```
 
 
@@ -202,13 +176,14 @@ Column
 ### 
 
 ```{r}
+# create data pivot ----
 ord_name_x <- "ord_x"
 ord_name_by <- "ord_by"
 
-
-# create data pivot ----
+# create
 data_for_plot <- 
   reactive({
+    ## no fill_by
     if(input$fill_by == "."){
     ColSelect <- input$x
     data[,
@@ -216,6 +191,8 @@ data_for_plot <-
          V1 = f(input$f, get(input$y))
          ),
         by = ColSelect][, (ord_name_x) := fct_reorder(get(input$x), -V1)]
+    
+    ## yes fill_by
     } else {
           ColSelect <- c(input$x, input$fill_by)
           data[,
@@ -233,7 +210,10 @@ data_for_plot <-
 
 ```{r}
 # create plot ----
+
 renderPlot({
+  # create
+  ## no fill_by
   if(input$fill_by == "."){
   g <- 
     data_for_plot() %>% 
@@ -241,6 +221,8 @@ renderPlot({
       aes_string(x = "ord_x", y = "V1", fill = "ord_x") + 
       geom_bar(stat = "identity",
                width = 0.6)
+  
+  ## yes fill_by
   } else {
       if(input$position %in% c(".", "dodge")){
             g <- 
@@ -264,10 +246,11 @@ renderPlot({
               aes_string(x = "ord_x", y = "V1", fill = "ord_by") + 
               geom_bar(stat = "identity",
                        width = 0.6)
-
       }
   }
   
+  # add text label to bar
+  ## no fill_by
   if(input$add_text == "yes"){
     if(input$position == "." & input$fill_by == "."){
           g <- 
@@ -279,6 +262,8 @@ renderPlot({
                vjust=-0.25,
                fontface = "bold"
               )
+          
+    ## yes fill_by
     } else if(input$position == "dodge" || (input$position == "." & input$fill_by != ".")){
           g <- 
              g +
@@ -312,14 +297,24 @@ renderPlot({
     }
   }
   
+  # serve
   g +
+    ## main theme
     theme_classic() +
+    
+    ## color palette
     scale_fill_brewer(palette=input$palette) + 
+    
+    ## start x from zero
     scale_y_continuous(
       expand = c(0, NA)
     ) +
+    
+    ## axis look management
     easy_remove_y_axis(what = c("line", "ticks")) +
     easy_remove_x_axis(what = c("ticks")) +
+    
+    ## add text labels to the plot
     labs(
       title = glue::glue("{input$f} of {input$y} by {input$x}"),
       subtitle = glue::glue("break on: {input$fill_by}"),
@@ -327,16 +322,18 @@ renderPlot({
       y = "",
       fill = ""
     ) +
+    
+    ## set customize theme
     theme(
       # legend
       legend.position = "top",
       
-      # grid
+      ## grid
       panel.grid.major.y = element_line( size=0.5, color="gray90") 
       
     ) +
+    ## no cliping to my plot!
     coord_cartesian(clip = 'off')
-    
 })
 ```
 
