@@ -74,18 +74,18 @@ f <- function(f_name, vector){
 #    )
 
 
-#data <-
-#  as.data.table(
-#  ggplot2::diamonds
-#  )
-
 data <-
   as.data.table(
-  mtcars
+  ggplot2::diamonds
   )
-data$cyl <- as.factor(data$cyl)
-data$vs <- as.factor(data$vs)
-data$am <- as.factor(data$am)
+
+#data <-
+#  as.data.table(
+#  mtcars
+#  )
+#data$cyl <- as.factor(data$cyl)
+#data$vs <- as.factor(data$vs)
+#data$am <- as.factor(data$am)
 
 
 #data <-
