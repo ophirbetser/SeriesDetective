@@ -1,5 +1,5 @@
 ---
-title: "MOFdata"
+title: "barsDetective"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -27,6 +27,7 @@ pacman::p_load(
   flexdashboard,
   stringi,
   plotly,
+  colorspace,
   ggthemes,
   ggeasy,
   colourpicker
@@ -57,6 +58,8 @@ f <- function(f_name, vector){
         return(max(vector))
       } else if(f_name == "sd"){
         return(sd(vector))
+      } else if(f_name == "count"){
+        return(length(vector))
       } else if(f_name == "uniqueN"){
         return(uniqueN(vector))
       } else if(f_name == "median"){
@@ -74,6 +77,7 @@ glue_formula <- function(.formula, .envir = parent.frame(), ...){
 }
 ```
 
+
 ```{r}
 #n <- 24000
 #
@@ -90,9 +94,24 @@ glue_formula <- function(.formula, .envir = parent.frame(), ...){
 #      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
 #    )
 #
+
+#data <-
+#  as.data.table(
+#  ggplot2::diamonds
+#  )
+
+#data <-
+#  as.data.table(
+#  mtcars
+#  )
+#data$cyl <- as.factor(data$cyl)
+#data$vs <- as.factor(data$vs)
+#data$am <- as.factor(data$am)
+
+
 data <-
   as.data.table(
-  ggplot2::diamonds
+  iris
   )
 ```
 
@@ -124,7 +143,7 @@ Column {.sidebar data-width=150}
 selectInput(
   'f',
   label = 'f',
-  c("mean", "sum", "min", "max", "sd", "uniqueN", "median", "sum_NA"),
+  c("mean", "sum", "min", "max", "sd", "count", "uniqueN", "median", "sum_NA"),
   selected= 'mean'
   )
 
@@ -159,6 +178,19 @@ selectInput(
   selected= '.'
   )
 
+radioButtons(
+  "add_text",
+  "add_text",
+  choices = c("yes", "no"),
+  selected = "no"
+)
+
+selectInput(
+  'palette',
+  label = 'palette',
+  c("Set1", "Set2", "Set3", "Accent", "Dark2", "Paired", "Pastel1", "Pastel2"),
+  selected = "Set1"
+  )
 
 
 ```
@@ -170,6 +202,9 @@ Column
 ### 
 
 ```{r}
+ord_name_x <- "ord_x"
+ord_name_by <- "ord_by"
+
 
 # create data pivot ----
 data_for_plot <- 
@@ -180,18 +215,21 @@ data_for_plot <-
         .(
          V1 = f(input$f, get(input$y))
          ),
-        by = ColSelect]
+        by = ColSelect][, (ord_name_x) := fct_reorder(get(input$x), -V1)]
     } else {
           ColSelect <- c(input$x, input$fill_by)
           data[,
               .(
                V1 = f(input$f, get(input$y))
                ),
-              by = ColSelect]
+              by = ColSelect][, 
+                  (ord_name_x) := fct_reorder(get(input$x), -V1)][,
+                  (ord_name_by) := fct_reorder(get(input$fill_by), -V1)]
     }
     
   })
 ```
+
 
 ```{r}
 # create plot ----
@@ -200,46 +238,105 @@ renderPlot({
   g <- 
     data_for_plot() %>% 
     ggplot() +
-      aes_string(x = input$x, y = "V1", fill = input$x) + 
-      geom_bar(stat = "identity")
+      aes_string(x = "ord_x", y = "V1", fill = "ord_x") + 
+      geom_bar(stat = "identity",
+               width = 0.6)
   } else {
       if(input$position %in% c(".", "dodge")){
             g <- 
             data_for_plot() %>% 
             ggplot() +
-              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
+              aes_string(x = "ord_x", y = "V1", fill = "ord_by") + 
               geom_bar(stat = "identity",
                        position = position_dodge2(preserve = "single"))
       } else if(input$position == "fill"){
             g <- 
             data_for_plot() %>% 
             ggplot() +
-              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
+              aes_string(x = "ord_x", y = "V1", fill = "ord_by") + 
               geom_bar(stat = "identity",
-                       position = "fill")
+                       position = "fill",
+                       width = 0.6)
       } else{
             g <- 
             data_for_plot() %>% 
             ggplot() +
-              aes_string(x = input$x, y = "V1", fill = input$fill_by) + 
-              geom_bar(stat = "identity")
+              aes_string(x = "ord_x", y = "V1", fill = "ord_by") + 
+              geom_bar(stat = "identity",
+                       width = 0.6)
 
       }
   }
   
+  if(input$add_text == "yes"){
+    if(input$position == "." & input$fill_by == "."){
+          g <- 
+            g +
+            geom_text(
+              aes(
+                label = scales::comma(V1, accuracy = 0.01)
+                ),
+               vjust=-0.25,
+               fontface = "bold"
+              )
+    } else if(input$position == "dodge" || (input$position == "." & input$fill_by != ".")){
+          g <- 
+             g +
+             geom_text(
+               aes(
+                 label = scales::comma(V1, accuracy = 0.01)
+                 ),
+               position=position_dodge(width=0.9),
+               vjust=-0.25
+               )
+    } else if(input$position == "fill"){
+          g <- 
+             g +
+             geom_text(
+               aes(
+                 label = scales::comma(V1, accuracy = 0.01)
+                 ),
+               position=position_fill(0.5),
+               fontface = "bold"
+               )
+    } else if(input$position == "stack"){
+          g <- 
+             g +
+             geom_text(
+               aes(
+                 label = scales::comma(V1, accuracy = 0.01)
+                 ),
+               position=position_stack(0.5),
+               fontface = "bold"
+               )
+    }
+  }
+  
   g +
     theme_classic() +
+    scale_fill_brewer(palette=input$palette) + 
     scale_y_continuous(
       expand = c(0, NA)
     ) +
     easy_remove_y_axis(what = c("line", "ticks")) +
+    easy_remove_x_axis(what = c("ticks")) +
     labs(
-      title = "OPHIR",
-      subtitle = "betser",
+      title = glue::glue("{input$f} of {input$y} by {input$x}"),
+      subtitle = glue::glue("break on: {input$fill_by}"),
       x = "",
       y = "",
       fill = ""
-    )
+    ) +
+    theme(
+      # legend
+      legend.position = "top",
+      
+      # grid
+      panel.grid.major.y = element_line( size=0.5, color="gray90") 
+      
+    ) +
+    coord_cartesian(clip = 'off')
+    
 })
 ```
 
