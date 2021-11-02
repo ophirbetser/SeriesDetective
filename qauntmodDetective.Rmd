@@ -1,0 +1,143 @@
+---
+title: "MOFdata"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: 
+      version: 5
+      bootswatch: spacelab
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  lubridate,
+  shiny,
+  flexdashboard,
+  stringi,
+  plotly,
+  quantmod,
+  ggthemes,
+  ggdark,
+  bslib,
+  rmarkdown,
+  colourpicker
+  )
+
+```
+
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+
+# keep those names
+textInput("ticker", "ticker", value = "AAPL")
+
+selectInput(
+  'series',
+  label = 'series',
+  c("Open", "High", "Low", "Close", "Volume", "Adjusted"),
+  selected= 'Adjusted'
+  )
+
+selectInput(
+  'time',
+  label = 'time',
+  c("day", "month", "year"),
+  selected= 'day'
+  )
+
+
+radioButtons(
+  "smooth",
+  "smooth",
+  choices = c("none", "lm", "smooth"),
+  selected = "none"
+)
+
+checkboxInput("se", "se", value = FALSE)
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+
+```{r}
+data_for_plot <- 
+  reactive({
+    getSymbols(input$ticker)
+    as.data.table(get(input$ticker))
+  })
+
+```
+
+
+```{r}
+# create plot ----
+renderPlot({
+
+  if(input$time == "day"){
+  # simpale plot
+      g <- 
+      data_for_plot() %>% 
+        ggplot() +
+        aes_string(x = "index", y = glue::glue("{input$ticker}.{input$series}"))
+  } else if(input$time == "month"){
+      g <- 
+      data_for_plot()[, floor_month := floor_date(index, "month")][, 
+            mean(get(glue::glue("{input$ticker}.{input$series}"))),
+            by = floor_month] %>% 
+        ggplot() +
+        aes_string(x = "floor_month", y = "V1")
+  } else if(input$time == "year"){
+      g <- 
+      data_for_plot()[, floor_year := floor_date(index, "year")][, 
+            mean(get(glue::glue("{input$ticker}.{input$series}"))),
+            by = floor_year] %>% 
+        ggplot() +
+        aes_string(x = "floor_year", y = "V1")
+  }
+  
+  ## add smooth line ----
+  if(input$smooth == "lm"){
+       g <- 
+         g +
+         geom_smooth(method = "lm", se = input$se)
+  } else if(input$smooth == "smooth"){
+       g <- 
+         g +
+         geom_smooth(se = input$se)
+  }
+  
+  g +
+    geom_line(color = "black") +
+    theme_tufte()
+  
+})
+```
+
+
