@@ -1,0 +1,384 @@
+---
+title: "AnomalyDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+runtime: shiny
+---
+
+```{r}
+# set environment ----
+
+## load librarys
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  DT,
+  glue,
+  lubridate,
+  shiny,
+  flexdashboard,
+  stringi,
+  plotly,
+  ggthemes,
+  colourpicker,
+  ggplot2,
+  esquisse,
+  ragg
+  )
+```
+
+
+```{r}
+# create proj functions ----
+
+## gen res plot
+plot_res <- function(data, x_name, y_name){
+  data %>% 
+  ggplot() +
+  aes_string(x = x_name, y = y_name) +
+  geom_line() +
+  geom_hline(yintercept = 0, color = "green") +
+  geom_hline(
+    yintercept = 
+      sd(data[, get(y_name)]), 
+    color = "blue"
+  ) +
+  geom_hline(
+    yintercept = 
+      -sd(data[, get(y_name)]), 
+    color = "blue"
+  ) +
+  geom_hline(
+    yintercept = 
+      2*sd(data[, get(y_name)]), 
+    color = "yellow"
+  ) +
+  geom_hline(
+    yintercept = 
+      -2*sd(data[, get(y_name)]), 
+    color = "yellow"
+  ) +
+  geom_hline(
+    yintercept = 
+      3*sd(data[, get(y_name)]), 
+    color = "red"
+  ) +
+  geom_hline(
+    yintercept = 
+      -3*sd(data[, get(y_name)]), 
+    color = "red"
+  ) +
+  theme_classic()
+}
+
+## gen raw data plot
+plot_raw <- function(data, x_name, y_name){
+  data %>% 
+  ggplot() +
+  aes_string(x = x_name, y = y_name) +
+  geom_line() +
+  theme_classic()
+}
+```
+
+```{r}
+# gen raw data ----
+n <- 1000
+m <- 100
+
+dt <- 
+  as.data.table(
+  matrix(
+  rnorm(n*m, mean = 0, sd = 10), n, m
+  )
+  )
+
+dt$index <- 1:n
+
+for(i in 1:m){
+  dt[, i] <- dt[, ..i] + (sample(seq(0.5, 10, 0.25), 1) * 1:n)
+}
+```
+
+```{r}
+# gen data for plot
+data_for_plot <- data.table(x = dt$index)
+for(name in names(dt)){
+  data_for_plot[, name] <- 
+    lm(
+      get(name) ~ index,
+      data = dt
+        )$residuals
+}
+```
+
+
+# Main
+
+```{r}
+
+```
+
+# Grid
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+
+selectInput(
+  'V_1_grid',
+  label = 'V_1_grid',
+  names(dt),
+  selected = names(dt)[1]
+  )
+
+selectInput(
+  'V_2_grid',
+  label = 'V_2_grid',
+  names(dt),
+  selected = names(dt)[2]
+  )
+
+selectInput(
+  'V_3_grid',
+  label = 'V_3_grid',
+  names(dt),
+  selected = names(dt)[3]
+  )
+
+selectInput(
+  'V_4_grid',
+  label = 'V_4_grid',
+  names(dt),
+  selected = names(dt)[4]
+  )
+
+selectInput(
+  'V_5_grid',
+  label = 'V_5_grid',
+  names(dt),
+  selected = names(dt)[5]
+  )
+
+selectInput(
+  'V_6_grid',
+  label = 'V_6_grid',
+  names(dt),
+  selected = names(dt)[6]
+  )
+
+
+radioButtons(
+  "show_for_grid",
+  "show_for_grid",
+  c("only res", "only raw"),
+  "only res"
+)
+
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### 
+
+
+```{r}
+## create plot ----
+renderPlot({
+
+# create diff plots 
+g_diff_for_grid_1 <- 
+  plot_res(data_for_plot, "x", input$V_1_grid)
+
+g_diff_for_grid_2 <- 
+  plot_res(data_for_plot, "x", input$V_2_grid)
+
+g_diff_for_grid_3 <- 
+  plot_res(data_for_plot, "x", input$V_3_grid)
+
+g_diff_for_grid_4 <- 
+  plot_res(data_for_plot, "x", input$V_4_grid)
+
+g_diff_for_grid_5 <- 
+  plot_res(data_for_plot, "x", input$V_5_grid)
+
+g_diff_for_grid_6 <- 
+  plot_res(data_for_plot, "x", input$V_6_grid)
+
+# create raw plots 
+g_raw_for_grid_1 <- 
+  plot_raw(dt, "index", input$V_1_grid)
+
+g_raw_for_grid_2 <- 
+  plot_raw(dt, "index", input$V_2_grid)
+
+g_raw_for_grid_3 <- 
+  plot_raw(dt, "index", input$V_3_grid)
+
+g_raw_for_grid_4 <- 
+  plot_raw(dt, "index", input$V_4_grid)
+
+g_raw_for_grid_5 <- 
+  plot_raw(dt, "index", input$V_5_grid)
+
+g_raw_for_grid_6 <- 
+  plot_raw(dt, "index", input$V_6_grid)
+
+# serve plots
+if(input$show_for_grid == "only res"){
+  (g_diff_for_grid_1 + g_diff_for_grid_2 + g_diff_for_grid_3) /
+  (g_diff_for_grid_4 + g_diff_for_grid_5 + g_diff_for_grid_6)
+} else{
+  (g_raw_for_grid_1 + g_raw_for_grid_2 + g_raw_for_grid_3) /
+  (g_raw_for_grid_4 + g_raw_for_grid_5 + g_raw_for_grid_6)
+}
+
+
+
+})
+```
+
+
+# Plot
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar
+
+selectInput(
+  'V_i',
+  label = 'V_i',
+  names(dt),
+  selected = names(dt)[2]
+  )
+
+
+radioButtons(
+  "show",
+  "show",
+  c("both", "only res", "only raw"),
+  "both"
+)
+
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### series name {.value-box}
+
+```{r}
+renderValueBox(
+  valueBox(
+  value = input$V_i
+  )
+)
+
+```
+
+### sd
+
+```{r}
+#renderValueBox(
+#  valueBox(
+#  value = round(sd(data_for_plot$y),2),
+#  caption = "SD",
+#  color = "info"
+#  )
+#)
+
+
+
+```
+
+### max {.value-box}
+
+```{r}
+#renderGauge(
+#  gauge(
+#    value = round(max(data_for_plot()$y),2), 
+#    min = 0, 
+#    max = 3*round(sd(data_for_plot()$y),2), 
+#    gaugeSectors(
+#     success = c(0, 0.99*sd(data_for_plot()$y)), 
+#     warning = c(1*(sd(data_for_plot()$y)), (2.99*sd(data_for_plot()$y))), 
+#     danger = c(3*(sd(data_for_plot()$y)), (20*sd(data_for_plot()$y)))
+#     )
+#  )
+#)
+```
+
+### abs min {.value-box}
+
+```{r}
+#renderGauge(
+#  gauge(
+#    value = abs(round(min(data_for_plot()$y),2)), 
+#    min = 0, 
+#    max = 3*round(sd(data_for_plot()$y),2), 
+#    gaugeSectors(
+#     success = c(0, 0.99*sd(data_for_plot()$y)), 
+#     warning = c(1*(sd(data_for_plot()$y)), (2.99*sd(data_for_plot()$y))), 
+#     danger = c(3*(sd(data_for_plot()$y)), (20*sd(data_for_plot()$y)))
+#     )
+#  )
+#)
+```
+
+Row
+-----------------------------------------------------------------------
+
+### 
+
+
+```{r}
+## create plot ----
+renderPlot({
+g_diff <- 
+  plot_res(data_for_plot, "x", input$V_i)
+
+g_raw <- 
+  plot_raw(dt, "index", input$V_i)
+
+
+if(input$show == "both"){
+  g_diff / g_raw
+} else if(input$show == "only raw"){
+  g_raw
+} else{
+  g_diff
+}
+
+})
+```
+
+
+
+# data
+
+```{r}
+renderDataTable(
+  datatable(dt)
+)
+```
+
+# data for plot
+
+```{r}
+renderDataTable(
+  datatable(data_for_plot)
+)
+```
