@@ -93,14 +93,17 @@ m <- 100
 dt <- 
   as.data.table(
   matrix(
-  rnorm(n*m, mean = 0, sd = 10), n, m
+    0, n, m
   )
-  )
+)
 
 dt$index <- 1:n
 
 for(i in 1:m){
-  dt[, i] <- dt[, ..i] + (sample(seq(0.5, 10, 0.25), 1) * 1:n)
+  dt[, i] <- 
+    dt[, ..i] + 
+      (sample(seq(0.5, 10, 0.05), 1) * 1:n) +
+      rnorm(n, mean = 0, sd =(sample(seq(10, 20, 0.25), 1)))
 }
 ```
 
@@ -119,9 +122,48 @@ for(name in names(dt)){
 
 # Main
 
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
 ```{r}
+# set the user selection sidebar
+
+selectInput(
+  'names',
+  label = 'names',
+  names(dt),
+  selected = names(dt)[1]
+  )
 
 ```
+
+
+Row
+-----------------------------------------------------------------------
+
+### 
+
+
+```{r}
+## create plot ----
+renderPlot({
+
+
+data_for_arg_plots <- 
+  data.table(
+    names = names(map_dbl(data_for_plot[, -c("index", "x")],sd)),
+    vals = map_dbl(data_for_plot[, -c("index", "x")],sd)
+  )
+
+data_for_arg_plots %>% 
+  ggplot() +
+  aes(x = names, y = vals) +
+  geom_bar(stat = "identity")
+
+})
+```
+
 
 # Grid
 
@@ -175,6 +217,28 @@ selectInput(
   )
 
 
+selectInput(
+  'V_7_grid',
+  label = 'V_7_grid',
+  names(dt),
+  selected = names(dt)[7]
+  )
+
+selectInput(
+  'V_8_grid',
+  label = 'V_8_grid',
+  names(dt),
+  selected = names(dt)[8]
+  )
+
+selectInput(
+  'V_9_grid',
+  label = 'V_9_grid',
+  names(dt),
+  selected = names(dt)[9]
+  )
+
+
 radioButtons(
   "show_for_grid",
   "show_for_grid",
@@ -214,6 +278,15 @@ g_diff_for_grid_5 <-
 g_diff_for_grid_6 <- 
   plot_res(data_for_plot, "x", input$V_6_grid)
 
+g_diff_for_grid_7 <- 
+  plot_res(data_for_plot, "x", input$V_7_grid)
+
+g_diff_for_grid_8 <- 
+  plot_res(data_for_plot, "x", input$V_8_grid)
+
+g_diff_for_grid_9 <- 
+  plot_res(data_for_plot, "x", input$V_9_grid)
+
 # create raw plots 
 g_raw_for_grid_1 <- 
   plot_raw(dt, "index", input$V_1_grid)
@@ -233,13 +306,25 @@ g_raw_for_grid_5 <-
 g_raw_for_grid_6 <- 
   plot_raw(dt, "index", input$V_6_grid)
 
+g_raw_for_grid_7 <- 
+  plot_raw(dt, "index", input$V_7_grid)
+
+g_raw_for_grid_8 <- 
+  plot_raw(dt, "index", input$V_8_grid)
+
+g_raw_for_grid_9 <- 
+  plot_raw(dt, "index", input$V_9_grid)
+
 # serve plots
 if(input$show_for_grid == "only res"){
   (g_diff_for_grid_1 + g_diff_for_grid_2 + g_diff_for_grid_3) /
-  (g_diff_for_grid_4 + g_diff_for_grid_5 + g_diff_for_grid_6)
+  (g_diff_for_grid_4 + g_diff_for_grid_5 + g_diff_for_grid_6) /
+  (g_diff_for_grid_7 + g_diff_for_grid_8 + g_diff_for_grid_9)
+
 } else{
   (g_raw_for_grid_1 + g_raw_for_grid_2 + g_raw_for_grid_3) /
-  (g_raw_for_grid_4 + g_raw_for_grid_5 + g_raw_for_grid_6)
+  (g_raw_for_grid_4 + g_raw_for_grid_5 + g_raw_for_grid_6) /
+  (g_raw_for_grid_7 + g_raw_for_grid_8 + g_raw_for_grid_9)
 }
 
 
@@ -261,7 +346,7 @@ selectInput(
   'V_i',
   label = 'V_i',
   names(dt),
-  selected = names(dt)[2]
+  selected = names(dt)[1]
   )
 
 
@@ -281,6 +366,27 @@ Row
 ### series name {.value-box}
 
 ```{r}
+
+sd1 <- 
+  reactive({
+     round(sd(data_for_plot[, get(input$V_i)]),2)
+  })
+
+max1 <- 
+  reactive({
+     round(max(data_for_plot[, get(input$V_i)]),2)
+  })
+
+
+min1 <- 
+  reactive({
+     round(min(data_for_plot[, get(input$V_i)]),2)
+  })
+
+```
+
+
+```{r}
 renderValueBox(
   valueBox(
   value = input$V_i
@@ -292,50 +398,61 @@ renderValueBox(
 ### sd
 
 ```{r}
-#renderValueBox(
-#  valueBox(
-#  value = round(sd(data_for_plot$y),2),
-#  caption = "SD",
-#  color = "info"
-#  )
-#)
-
-
-
+renderValueBox(
+  valueBox(
+  value = sd1(),
+  caption = "SD res",
+  color = "info"
+  )
+)
 ```
 
 ### max {.value-box}
 
 ```{r}
-#renderGauge(
-#  gauge(
-#    value = round(max(data_for_plot()$y),2), 
-#    min = 0, 
-#    max = 3*round(sd(data_for_plot()$y),2), 
-#    gaugeSectors(
-#     success = c(0, 0.99*sd(data_for_plot()$y)), 
-#     warning = c(1*(sd(data_for_plot()$y)), (2.99*sd(data_for_plot()$y))), 
-#     danger = c(3*(sd(data_for_plot()$y)), (20*sd(data_for_plot()$y)))
-#     )
-#  )
-#)
+col_max <- 
+  reactive({
+    if(max1() > 3*sd1()){
+      "danger"
+    } else if(max1() > 2*sd1()){
+      "warning"
+    }else{
+      "success"
+    }
+  })
+
+
+
+renderValueBox(
+  valueBox(
+  value = max1(),
+  caption = "MAX res",
+  color = col_max()
+  )
+)
 ```
 
-### abs min {.value-box}
+### min {.value-box}
 
 ```{r}
-#renderGauge(
-#  gauge(
-#    value = abs(round(min(data_for_plot()$y),2)), 
-#    min = 0, 
-#    max = 3*round(sd(data_for_plot()$y),2), 
-#    gaugeSectors(
-#     success = c(0, 0.99*sd(data_for_plot()$y)), 
-#     warning = c(1*(sd(data_for_plot()$y)), (2.99*sd(data_for_plot()$y))), 
-#     danger = c(3*(sd(data_for_plot()$y)), (20*sd(data_for_plot()$y)))
-#     )
-#  )
-#)
+col_min <- 
+  reactive({
+    if(min1() < -3*sd1()){
+      "danger"
+    } else if(min1() < -2*sd1()){
+      "warning"
+    }else{
+      "success"
+    }
+  })
+  
+renderValueBox(
+  valueBox(
+  value = min1(),
+  caption = "MIN res",
+  color = col_min()
+  )
+)
 ```
 
 Row
