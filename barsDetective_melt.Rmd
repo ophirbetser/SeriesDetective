@@ -1,0 +1,280 @@
+---
+title: "barsDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  lubridate,
+  shiny,
+  DT,
+  flexdashboard,
+  stringi,
+  plotly,
+  colorspace,
+  ggthemes,
+  ggeasy,
+  colourpicker
+  )
+
+# f for R^2 -> R function on vector, 
+# by the name of the function
+f <- function(f_name, vector){
+      if(f_name == "mean"){
+        return(mean(vector))
+      } else if(f_name == "sum"){
+        return(sum(vector))
+      } else if(f_name == "min"){
+        return(min(vector))
+      } else if(f_name == "max"){
+        return(max(vector))
+      } else if(f_name == "sd"){
+        return(sd(vector))
+      } else if(f_name == "count"){
+        return(length(vector))
+      } else if(f_name == "uniqueN"){
+        return(uniqueN(vector))
+      } else if(f_name == "median"){
+        return(median(vector))
+      }else if(f_name == "sum_NA"){
+        return(sum(is.na(vector)))
+      }
+}
+```
+
+
+```{r}
+#n <- 24000
+#
+## gen the random data
+#data <- 
+#    data.table(
+#      y1 = rnorm(n) + seq(0, 0.5, length.out = n),
+#      y2 = rnorm(n, mean = -0.25, sd = 2),
+#      y3 = rnorm(n, mean = 0.25, sd = 1.5),
+#      y4 = rnorm(n, mean = 0.5, sd = 1.5),
+#      group1 = sample(c("yin", "yang"), n, replace = T),
+#      group2 = sample(c("tora", "avoda", "gmilot_hasadim"), n, replace = T),
+#      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
+#      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
+#    )
+
+
+data <-
+  as.data.table(
+  ggplot2::diamonds
+  )
+
+#data <-
+#  as.data.table(
+#  mtcars
+#  )
+#data$cyl <- as.factor(data$cyl)
+#data$vs <- as.factor(data$vs)
+#data$am <- as.factor(data$am)
+
+
+#data <-
+#  as.data.table(
+#  iris
+#  )
+```
+
+
+```{r}
+
+# num cols:
+num_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.numeric))
+    ]
+
+# char cols:
+chr_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.character)) |
+    unlist(lapply(data, is.factor))
+    ]
+```
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar ----
+
+selectInput(
+  'f',
+  label = 'f',
+  c("mean", "sum", "min", "max", "sd", "count", "uniqueN", "median", "sum_NA"),
+  selected= 'mean'
+  )
+
+selectInput(
+  'x',
+  label = 'x',
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+selectInput(
+  'y1',
+  label = 'y1',
+  num_col_names,
+  selected = num_col_names[1]
+  )
+
+selectInput(
+  'y2',
+  label = 'y2',
+  c(".", num_col_names),
+  selected = "." 
+  )
+
+selectInput(
+  'y3',
+  label = 'y3',
+  c(".", num_col_names),
+  selected = "."
+  )
+
+#selectInput(
+#  'position',
+#  label = 'position',
+#  c(".", "dodge", "fill", "stack"),
+#  selected= '.'
+#  )
+#
+#radioButtons(
+#  "add_text",
+#  "add_text",
+#  choices = c("yes", "no"),
+#  selected = "no"
+#)
+#
+#selectInput(
+#  'palette',
+#  label = 'palette',
+#  c("Set1", "Set2", "Set3", "Accent", "Dark2", "Paired", "Pastel1", "Pastel2"),
+#  selected = "Set1"
+#  )
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+# create data pivot ----
+ord_name_x <- "ord_x"
+ord_name_by <- "ord_by"
+
+# create
+data_for_plot <- 
+  reactive({
+    ColSelect <- input$x
+    
+    ## no fill_by
+    if(input$y2 == "."){
+    data[,
+        .(
+         V1 = f(input$f, get(input$y1))
+         ),
+        by = ColSelect] %>% 
+      melt(input$x)
+    
+    ## yes fill_by
+    } else {
+          data[,
+              .(
+               V1 = f(input$f, get(input$y1)),
+               V2 = f(input$f, get(input$y2))
+               ),
+              by = ColSelect] %>% 
+              melt(input$x)
+
+    }
+    
+  })
+
+
+#data_for_plot <- 
+#  reactive({
+#    ColSelect <- input$x
+#    
+#    data[,
+#        .(
+#         V1 = f(input$f, get(input$y1))
+#         ),
+#        by = ColSelect] %>% 
+#      melt(input$x)
+#    })
+```
+
+
+```{r}
+# create plot ----
+#
+renderPlot({
+  # create
+  ## no fill_by
+  if(input$y2 == "."){
+      g <- 
+        data_for_plot() %>% 
+        ggplot() +
+          aes_string(x = input$x, y = "value", fill = "variable") + 
+          geom_bar(stat = "identity",
+                   width = 0.6)
+  } else{
+      g <- 
+      data_for_plot() %>% 
+      ggplot() +
+        aes_string(x = input$x, y = "value", fill = "variable") + 
+        geom_bar(stat = "identity",
+                 position = position_dodge2(preserve = "single"),
+                 width = 0.6)
+  } 
+  
+
+  # serve
+  g
+})
+```
+
+# SDFSD
+
+```{r}
+renderDataTable(
+  datatable(data_for_plot())
+)
+```
+
+
+# ASDASD
+
+```{r}
+renderDataTable(
+  datatable(data)
+)
+```
+
+
