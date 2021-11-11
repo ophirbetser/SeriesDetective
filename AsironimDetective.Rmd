@@ -1,0 +1,239 @@
+---
+title: "barsDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  plyr,
+  lubridate,
+  shiny,
+  DT,
+  flexdashboard,
+  stringi,
+  plotly,
+  colorspace,
+  ggthemes,
+  ggeasy,
+  colourpicker
+  )
+
+```
+
+
+```{r}
+#n <- 24000
+#
+## gen the random data
+#data <- 
+#    data.table(
+#      y1 = rnorm(n) + seq(0, 0.5, length.out = n),
+#      y2 = rnorm(n, mean = -0.25, sd = 2),
+#      y3 = rnorm(n, mean = 0.25, sd = 1.5),
+#      y4 = rnorm(n, mean = 0.5, sd = 1.5),
+#      group1 = sample(c("yin", "yang"), n, replace = T),
+#      group2 = sample(c("tora", "avoda", "gmilot_hasadim"), n, replace = T),
+#      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
+#      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
+#    )
+
+
+
+#data <-
+#  as.data.table(
+#  ggplot2::diamonds
+#  )
+
+
+#data <-
+#  as.data.table(
+#  mtcars
+#  )
+#
+#data$cyl <- as.factor(data$cyl)
+#data$vs <- as.factor(data$vs)
+#data$am <- as.factor(data$am)
+
+
+data <-
+  as.data.table(
+  iris
+  )
+
+data <- 
+data %>%
+  mutate_if(is.integer,as.numeric) 
+
+```
+
+
+```{r}
+
+# num cols:
+num_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.numeric))
+    ]
+
+# char cols:
+chr_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.character)) |
+    unlist(lapply(data, is.factor))
+    ]
+```
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar ----
+
+selectInput(
+  'x',
+  label = 'x',
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+selectInput(
+  'y',
+  label = 'y',
+  num_col_names,
+  selected= num_col_names[1]
+  )
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+# create data pivot ----
+data_for_plot <- 
+  reactive({
+    
+    ColSelect <- input$x
+
+    data[, 
+       ntile := ntile(get(input$y), 10),
+       by = ColSelect]
+
+    join_all(
+        list(
+          data[ntile == 10, .(mean_top = mean(get(input$y))), ColSelect],
+          data[ntile == 1, .(mean_bottom = mean(get(input$y))), ColSelect],
+          data[, .(mean = mean(get(input$y))), ColSelect],
+          data[, .(median = median(get(input$y))), ColSelect]
+        ),
+        by = input$x
+      )
+    
+})
+```
+
+
+```{r}
+# create plot ----
+
+renderPlot({
+  # create
+range <- max(data_for_plot()$mean_top) - min(data_for_plot()$mean_bottom)
+tick_width <- 0.004  
+segment_hight <- 12
+
+data_for_plot() %>% 
+  ggplot() +
+  geom_segment(
+    aes_string(
+      x = "mean_bottom",
+      xend = "mean_top",
+      y = input$x,
+      yend = input$x
+    ),
+    size = segment_hight,
+    color = "#45688E"
+  ) +
+  geom_segment(
+    aes_string(
+      x = "mean",
+      xend = "median",
+      y = input$x,
+      yend = input$x
+    ),
+    size = segment_hight,
+    color = "#07006F"
+  ) +
+  geom_segment(
+    aes(
+      x = mean,
+      xend = mean + tick_width * range,
+      y = get(input$x),
+      yend = get(input$x)
+    ),
+    size = segment_hight,
+    color = "#1BFF00"
+  ) +
+  geom_segment(
+    aes(
+      x = median,
+      xend = median - tick_width * range,
+      y = get(input$x),
+      yend = get(input$x)
+    ),
+    size = segment_hight,
+    color = "#FF9E00"
+  ) +
+  theme_classic() +
+  easy_remove_y_axis(what = c("ticks")) +
+  easy_remove_x_axis(what = c("line", "ticks")) +
+  labs(
+    title = glue("asironim of {input$y} by {input$x}"),
+    x = "",
+    y = ""
+  ) +
+  theme(
+    panel.grid.major.x = element_line(size = 0.6, colour = "gray85")
+  )
+
+})
+```
+
+# raw data
+
+```{r}
+renderDataTable(
+  datatable(data_for_plot())
+)
+```
+
+# data for plot
+
+```{r}
+renderDataTable(
+  datatable(data)
+)
+```
+
+
