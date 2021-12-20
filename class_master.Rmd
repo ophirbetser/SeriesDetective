@@ -1,0 +1,93 @@
+---
+title: "barsDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  plyr,
+  lubridate,
+  shiny,
+  DT,
+  flexdashboard,
+  stringi,
+  plotly,
+  colorspace,
+  ggthemes,
+  ggeasy,
+  colourpicker
+  )
+
+```
+
+```{r}
+data <- 
+  iris
+```
+
+
+
+
+Column {.sidebar data-width=200}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar ----
+radioButtons(
+  "add_text",
+  "add_text",
+  choices = c("N", "C", "F"),
+  selected = "N",
+  inline = T
+)
+
+shiny::actionButton(
+  "act_b",
+  "act_b"
+)
+
+
+```
+
+```{r}
+reactive(
+if(input$act_b > 5){
+      updateActionButton(session, "act_b",
+      label = "New label",
+      icon = icon("calendar"))
+}
+)
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+
+renderPrint({
+  str(data)
+  
+  
+})
+
+```
+

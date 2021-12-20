@@ -1,0 +1,150 @@
+---
+title: "barsDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+# Plot
+
+```{r global}
+# load librarys
+if (!require("pacman")){                                  
+    install.packages("pacman")}                       
+pacman::p_load(
+  pacman,
+  data.table,
+  tidyverse,
+  ggeasy,
+  Rcpp,
+  glue,
+  plyr,
+  lubridate,
+  shiny,
+  DT,
+  flexdashboard,
+  stringi,
+  plotly,
+  colorspace,
+  ggthemes,
+  ggeasy,
+  colourpicker
+  )
+
+```
+
+
+```{r}
+#n <- 24000
+#
+## gen the random data
+#data <- 
+#    data.table(
+#      y1 = rnorm(n) + seq(0, 0.5, length.out = n),
+#      y2 = rnorm(n, mean = -0.25, sd = 2),
+#      y3 = rnorm(n, mean = 0.25, sd = 1.5),
+#      y4 = rnorm(n, mean = 0.5, sd = 1.5),
+#      group1 = sample(c("yin", "yang"), n, replace = T),
+#      group2 = sample(c("tora", "avoda", "gmilot_hasadim"), n, replace = T),
+#      group3 = sample(c("fire", "air", "water", "earth"), n, replace = T),
+#      group4 = sample(c("i", "ii", "iii", "iv", "v"), n, replace = T)
+#    )
+
+
+
+ data <-
+   as.data.table(
+   ggplot2::diamonds
+   )
+
+
+#data <-
+#  as.data.table(
+#  mtcars
+#  )
+#
+#data$cyl <- as.factor(data$cyl)
+#data$vs <- as.factor(data$vs)
+#data$am <- as.factor(data$am)
+
+
+#data <-
+#  as.data.table(
+#  iris
+#  )
+
+data <- 
+data %>%
+  mutate_if(is.integer,as.numeric) 
+
+```
+
+
+```{r}
+
+# num cols:
+num_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.numeric))
+    ]
+
+# char cols:
+chr_col_names <- 
+  names(data)[
+    unlist(lapply(data, is.character)) |
+    unlist(lapply(data, is.factor))
+    ]
+```
+
+
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar ----
+
+for(name in names(iris)){
+  selectInput(
+  name,
+  label = name,
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+  
+}
+
+selectInput(
+  'x',
+  label = 'x',
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+
+
+```{r}
+# create plot ----
+
+renderPlot({
+  
+  iris %>% ggplot() +
+    aes(Sepal.Length,Sepal.Width) +
+    geom_point()
+  
+})
+```
+

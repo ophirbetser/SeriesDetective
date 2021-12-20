@@ -1,0 +1,35 @@
+---
+title: "barsDetective"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    source_code: embed
+runtime: shiny
+---
+
+
+# Plot
+
+<!-- This R chank set data -->
+```{r echo=FALSE, code = readLines("set_pack_and_data.R")}
+```
+
+
+<!-- This R chank create the sidebar and the pivot tables of the app -->
+```{r, child='render_app_mean_info.Rmd', eval=TRUE}
+```
+
+
+<!-- This R chank renders the plot -->
+```{r echo=FALSE, code = readLines("try_to_sourse_me.R")}
+```
+
+
+<!-- This R chank add the data tabs -->
+```{r, child='render_data_tabs.Rmd', eval=TRUE}
+```
+
+
+<!-- This R chank add the Design Tab -->
+```{r, child='try_to_sourse_me.Rmd', eval=TRUE}
+```

@@ -1,0 +1,16 @@
+---
+title: "example.Rmd"
+author: "Ophir Betser"
+date: "12/20/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, code = readLines("example2.R")}
+```
+
+```{r echo=F, code = readLines("example3.R")}
+```

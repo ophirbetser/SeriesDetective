@@ -55,6 +55,19 @@ f <- function(f_name, vector){
         return(sum(is.na(vector)))
       }
 }
+
+
+f_to <- function(n, fname, name1, name2, name3, name4){
+  if(n == 1){
+    list(f(fname,name1))
+  } else if(n == 2){
+    list(f(fname,name1),f(fname,name2))
+  } else if(n == 3){
+    list(f(fname,name1),f(fname,name2),f(fname,name3))
+  } else if(n == 4){
+    list(f(fname,name1),f(fname,name2),f(fname,name3),f(fname,name4))
+  }
+}
 ```
 
 
@@ -93,11 +106,15 @@ data <-
 #  as.data.table(
 #  iris
 #  )
+
+
+data <- 
+data %>%
+  mutate_if(is.integer,as.numeric) 
 ```
 
 
 ```{r}
-
 # num cols:
 num_col_names <- 
   names(data)[
@@ -114,7 +131,7 @@ chr_col_names <-
 
 
 Column {.sidebar data-width=150}
------------------------------------------------------------------------
+----
 
 <br>
 ```{r}
@@ -155,13 +172,47 @@ selectInput(
   selected = "."
   )
 
-#selectInput(
-#  'position',
-#  label = 'position',
-#  c(".", "dodge", "fill", "stack"),
-#  selected= '.'
-#  )
-#
+selectInput(
+  'y4',
+  label = 'y4',
+  c(".", num_col_names),
+  selected = "."
+  )
+
+selectInput(
+  'position',
+  label = 'position',
+  c("dodge2", "dodge", "fill", "stack"),
+  selected= "dodge2"
+  )
+
+selectInput(
+  'palette',
+  label = 'palette',
+  c("Set1", "Set2", "Set3", "Accent", "Dark2", "Paired", "Pastel1", "Pastel2"),
+  selected = "Set1"
+  )
+
+
+radioButtons(
+  "x_to_y",
+  "x_to_y",
+  choices = c("yes", "no"),
+  selected = "no",
+  inline = TRUE
+)
+
+radioButtons(
+  "flip_axis",
+  "flip_axis",
+  choices = c("yes", "no"),
+  selected = "no",
+  inline = TRUE
+
+)
+
+
+
 #radioButtons(
 #  "add_text",
 #  "add_text",
@@ -169,17 +220,12 @@ selectInput(
 #  selected = "no"
 #)
 #
-#selectInput(
-#  'palette',
-#  label = 'palette',
-#  c("Set1", "Set2", "Set3", "Accent", "Dark2", "Paired", "Pastel1", "Pastel2"),
-#  selected = "Set1"
-#  )
+
 ```
 
 
 Column
------------------------------------------------------------------------
+------
 
 ### 
 
@@ -193,74 +239,121 @@ data_for_plot <-
   reactive({
     ColSelect <- input$x
     
+    name_for_piv <- 
+      c(input$y1, input$y2, input$y3, input$y4)[
+        c(input$y1, input$y2, input$y3, input$y4) != "."
+      ]
+    
+    num_of_series <- 
+        4 - sum(
+          c(".", ".", ".", ".") ==
+          c(input$y1, input$y2, input$y3, input$y4)
+        )    
+    
+    
     ## no fill_by
-    if(input$y2 == "."){
     data[,
-        .(
-         V1 = f(input$f, get(input$y1))
-         ),
+         setNames(
+         f_to(
+           num_of_series,
+           input$f,
+           get(input$y1),
+           get(input$y2), 
+           get(input$y3),
+           get(input$y4)
+           ),
+         name_for_piv),
         by = ColSelect] %>% 
       melt(input$x)
-    
-    ## yes fill_by
-    } else {
-          data[,
-              .(
-               V1 = f(input$f, get(input$y1)),
-               V2 = f(input$f, get(input$y2))
-               ),
-              by = ColSelect] %>% 
-              melt(input$x)
-
-    }
-    
   })
-
-
-#data_for_plot <- 
-#  reactive({
-#    ColSelect <- input$x
-#    
-#    data[,
-#        .(
-#         V1 = f(input$f, get(input$y1))
-#         ),
-#        by = ColSelect] %>% 
-#      melt(input$x)
-#    })
 ```
+
 
 
 ```{r}
 # create plot ----
-#
 renderPlot({
   # create
-  ## no fill_by
-  if(input$y2 == "."){
+  if(input$x_to_y == "no"){
       g <- 
-        data_for_plot() %>% 
+      data_for_plot() %>% 
         ggplot() +
           aes_string(x = input$x, y = "value", fill = "variable") + 
           geom_bar(stat = "identity",
-                   width = 0.6)
+                   position = input$position,
+                   width = 0.6) 
   } else{
       g <- 
       data_for_plot() %>% 
-      ggplot() +
-        aes_string(x = input$x, y = "value", fill = "variable") + 
-        geom_bar(stat = "identity",
-                 position = position_dodge2(preserve = "single"),
-                 width = 0.6)
-  } 
+        ggplot() +
+          aes_string(fill = input$x, y = "value", x = "variable") + 
+          geom_bar(stat = "identity",
+                   position = input$position,
+                   width = 0.6) 
+  }
   
+  if(input$flip_axis == "yes"){
+    g <- 
+      g +
+      theme_classic() +
+      coord_flip() +
+      ## axis look management
+      easy_remove_x_axis(what = c("line", "ticks")) +
+      easy_remove_y_axis(what = c("ticks")) +
+      theme(
+      ## grid
+      panel.grid.major.x = element_line( size=0.5, color="gray90") 
+    ) 
 
+  } else{
+    g <- 
+      g +
+      theme_classic() +
+      ## axis look management
+      easy_remove_y_axis(what = c("line", "ticks")) +
+      easy_remove_x_axis(what = c("ticks")) +
+      theme(
+      ## grid
+      panel.grid.major.y = element_line( size=0.5, color="gray90") 
+    ) 
+
+  }
+  
+  
   # serve
+  g <- 
+  g +
+
+    ## color palette
+    scale_fill_brewer(palette=input$palette) + 
+
+    ## start x from zero
+    scale_y_continuous(
+      expand = c(0, NA)
+    ) +
+
+    ## add text labels to the plot
+    labs(
+      title = glue::glue('{input$f} by {input$x}'),
+      subtitle = glue::glue('show: {input$y1}, {input$y2}, {input$y3}, {input$y4}'),
+      x = "",
+      y = "",
+      fill = ""
+    ) +
+
+    ## set customize theme
+    theme(
+      # legend
+     legend.justification = "top"
+    ) 
+    ## no cliping to my plot!
+    #coord_cartesian(clip = 'off')
+  
   g
 })
 ```
 
-# SDFSD
+# plot data
 
 ```{r}
 renderDataTable(
@@ -269,7 +362,7 @@ renderDataTable(
 ```
 
 
-# ASDASD
+# full data
 
 ```{r}
 renderDataTable(

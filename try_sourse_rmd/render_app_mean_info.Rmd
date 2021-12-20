@@ -1,0 +1,63 @@
+Column {.sidebar data-width=150}
+-----------------------------------------------------------------------
+
+<br>
+```{r}
+# set the user selection sidebar ----
+
+selectInput(
+  'x',
+  label = 'x',
+  chr_col_names,
+  selected = chr_col_names[1]
+  )
+
+selectInput(
+  'y',
+  label = 'y',
+  num_col_names,
+  selected= num_col_names[1]
+  )
+
+radioButtons(
+  "add_text",
+  "add_text",
+  choices = c("yes", "no"),
+  selected = "no"
+)
+
+sliderInput("grid_break", label = "grid_break:",
+            min = 0, max = 20, value = 8, step = 1)
+
+
+```
+
+
+Column
+-----------------------------------------------------------------------
+
+### 
+
+```{r}
+# create data pivot ----
+data_for_plot <- 
+  reactive({
+    
+    ColSelect <- input$x
+
+    data[, 
+       ntile := ntile(get(input$y), 10),
+       by = ColSelect]
+
+    join_all(
+        list(
+          data[ntile == 10, .(mean_top = mean(get(input$y))), ColSelect],
+          data[ntile == 1, .(mean_bottom = mean(get(input$y))), ColSelect],
+          data[, .(mean = mean(get(input$y))), ColSelect],
+          data[, .(median = median(get(input$y))), ColSelect]
+        ),
+        by = input$x
+      )
+    
+})
+```

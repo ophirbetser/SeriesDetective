@@ -1,0 +1,15 @@
+# raw data
+
+```{r}
+renderDataTable(
+  datatable(data_for_plot())
+)
+```
+
+# data for plot
+
+```{r}
+renderDataTable(
+  datatable(data)
+)
+```
