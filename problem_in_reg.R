@@ -8,7 +8,10 @@ pacman::p_load(
             shiny,
             visdat)
 
-d <- fread("/Users/ophirbetser/Ophir/R PROJECTS/SeriesDetective/problem_in_reg.csv")
+d <- 
+  fread(
+    "https://raw.githubusercontent.com/ophirbetser/SeriesDetective/master/problem_in_reg.csv"
+    )
 
 d[, ":="(res_wday = y - mean(y)), by = wday]
 d[, ":="(res_wday_is_holiday = res_wday - mean(res_wday)), by = is_holiday]
